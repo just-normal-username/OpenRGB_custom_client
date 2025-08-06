@@ -22,9 +22,10 @@ flash = False
 terminate= False
 ringing = False
 while (client.device_num!=5):
-    client.disconnect()
     time.sleep(1)
-    client=OpenRGBClient()
+    client.update()
+time.sleep(2)
+client.update()
 devices=client.devices
 print(client.devices)
 #client.clear() # Turns everything off
