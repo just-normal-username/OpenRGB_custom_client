@@ -28,8 +28,11 @@ time.sleep(2)
 client.update()
 devices=client.devices
 print(client.devices)
-#client.clear() # Turns everything off
-#client.devices[2].set_color(RGBColor(255,0,0))
+# print(devices[2].leds)
+# client.clear() # Turns everything off
+# devices[2].leds[0].set_color(RGBColor(255,0,0))
+# client.devices[2].set_color(RGBColor(255,0,0))
+# time.sleep(3)
 
 # definizione palette dei colori
 not_index=0
@@ -73,27 +76,28 @@ def on_message(client, userdata, msg):
     global not_index
     global ringing
     print(f"[{msg.topic}] {msg.payload.decode()}")
-    match msg.payload.decode():
-        case "com.whatsapp":
-            flash=True
-            not_index=0
-        case "com.google.android.gm":
-            flash=True
-            not_index=3
-        case "com.instagram.android":
-            flash=True
-            not_index=2
-        case "org.telegram.messenger":
-            flash=True
-            not_index=1
-        case "ringing": #il telefono sta squillando
-            ringing=True
-            flash=True
-            not_index=4
-        case "idle":
-            ringing=False
-        case "offhook":
-            ringing=False
+    if(not flash):
+        match msg.payload.decode():
+            case "com.whatsapp":
+                flash=True
+                not_index=0
+            case "com.google.android.gm":
+                flash=True
+                not_index=3
+            case "com.instagram.android":
+                flash=True
+                not_index=2
+            case "org.telegram.messenger":
+                flash=True
+                not_index=1
+            case "ringing": #il telefono sta squillando
+                ringing=True
+                flash=True
+                not_index=4
+            case "idle":
+                ringing=False
+            case "offhook":
+                ringing=False
 
 
 mqtt_client = paho.Client(
