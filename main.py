@@ -13,7 +13,7 @@ while loop:
     loop = False
     try:
         client = OpenRGBClient()
-    except TimeoutError:
+    except:
         loop = True
         time.sleep(1)
 
@@ -21,8 +21,9 @@ while loop:
 flash = False
 terminate= False
 ringing = False
-while (client.device_num==0):
+while (client.device_num!=5):
     client.disconnect()
+    time.sleep(1)
     client=OpenRGBClient()
 devices=client.devices
 print(client.devices)
