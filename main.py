@@ -7,8 +7,16 @@ from noise import pnoise2
 import paho.mqtt.client as paho
 from paho import mqtt
 
+loop = True
 
-client = OpenRGBClient()
+while loop:
+    loop = False
+    try:
+        client = OpenRGBClient()
+    except TimeoutError:
+        loop = True
+        time.sleep(1)
+
 
 flash = False
 terminate= False
