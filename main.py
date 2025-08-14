@@ -6,6 +6,7 @@ import threading
 from noise import pnoise2
 import paho.mqtt.client as paho
 from paho import mqtt
+import keyboard
 
 loop = True
 
@@ -21,6 +22,8 @@ while loop:
 flash = False
 terminate= False
 ringing = False
+led_on= True
+led_prec_state=True
 while (client.device_num!=5):
     time.sleep(1)
     client.update()
@@ -69,6 +72,9 @@ def on_log(client, userdata, level, buf):
 def on_connect(client, userdata, flags, reason_code, properties):
     print(f"Connesso con codice: {reason_code}")
     client.subscribe("Notification")
+def toggle_led():
+    global led_on
+    led_on= not led_on
 
 # Callback quando arriva un messaggio
 def on_message(client, userdata, msg):
@@ -126,11 +132,11 @@ def interpolate_palette(t, luminosita):
     b = int((c1[2] + (c2[2] - c1[2]) * frac)*luminosita)
     return RGBColor(r, g, b)
 
-def hsv_to_rgb(h, s, v):
-    """Convert HSV [0-1] to RGBColor"""
-    import colorsys
-    r, g, b = colorsys.hsv_to_rgb(h, s, v)
-    return RGBColor(int(r*255), int(g*255), int(b*255))
+# def hsv_to_rgb(h, s, v):
+#     """Convert HSV [0-1] to RGBColor"""
+#     import colorsys
+#     r, g, b = colorsys.hsv_to_rgb(h, s, v)
+#     return RGBColor(int(r*255), int(g*255), int(b*255))
 
 def noise_effect(step=0.05, speed=0.6, scale=0.25):
     """
@@ -142,82 +148,96 @@ def noise_effect(step=0.05, speed=0.6, scale=0.25):
     global terminate
     global center
     global ringing
+    global led_on
+    global led_prec_state
     t = 0
     t2=0.0
     while not terminate:
         index=0
-        for dev in devices:
-            colors=[]
-            luminosita=1.0
-            led_strip=False
-            if dev.name.find("Addressable")!=-1: 
-                luminosita=0.5
-                led_strip=True
-            for i, _ in enumerate(dev.leds):
-                # Noise basato su posizione LED e tempo
-                n = pnoise2(index * scale, t * speed)
-                n = (n + 1) / 2  # normalizza 0-1
-                # Mappo il noise su una tonalità (HSV)
-                color=interpolate_palette(n, luminosita)
+        if led_on==True:
+            for dev in devices:
+                colors=[]
+                luminosita=1.0
+                led_strip=False
+                if dev.name.find("Addressable")!=-1: 
+                    luminosita=0.5
+                    led_strip=True
+                for i, _ in enumerate(dev.leds):
+                    # Noise basato su posizione LED e tempo
+                    n = pnoise2(index * scale, t * speed)
+                    n = (n + 1) / 2  # normalizza 0-1
+                    # Mappo il noise su una tonalità (HSV)
+                    color=interpolate_palette(n, luminosita)
 
-                # if led_strip and flash:                      #notifiche
-                #     brightness = abs(math.sin(t2 * math.pi))*luminosita
-                #     color=interpolate_palette(n, luminosita-brightness)
-                #     color.red=color.red+int(not_palettes[not_index].red*brightness)
-                #     color.green=color.green+int(not_palettes[not_index].green*brightness)
-                #     color.blue=color.blue+int(not_palettes[not_index].blue*brightness)
-                # else:
-                #     color=interpolate_palette(n, luminosita)
+                    # if led_strip and flash:                      #notifiche
+                    #     brightness = abs(math.sin(t2 * math.pi))*luminosita
+                    #     color=interpolate_palette(n, luminosita-brightness)
+                    #     color.red=color.red+int(not_palettes[not_index].red*brightness)
+                    #     color.green=color.green+int(not_palettes[not_index].green*brightness)
+                    #     color.blue=color.blue+int(not_palettes[not_index].blue*brightness)
+                    # else:
+                    #     color=interpolate_palette(n, luminosita)
 
-                # if i >= center:
-                #     color.red=255
-                #     color.green=0
-                #     color.blue=0
+                    # if i >= center:
+                    #     color.red=255
+                    #     color.green=0
+                    #     color.blue=0
 
-                colors.append(color)
-                index+=1
-            if(led_strip):
-                for i in range(59,center, -1):
-                    brightness_array[i]=brightness_array[i-1]
-                    colors[i].red=int(colors[i].red*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].red*brightness_array[i])
-                    colors[i].green=int(colors[i].green*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].green*brightness_array[i])
-                    colors[i].blue=int(colors[i].blue*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].blue*brightness_array[i])
-                for i in range(0,center-1):
-                    brightness_array[i]=brightness_array[i+1]
-                    colors[i].red=int(colors[i].red*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].red*brightness_array[i])
-                    colors[i].green=int(colors[i].green*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].green*brightness_array[i])
-                    colors[i].blue=int(colors[i].blue*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].blue*brightness_array[i])
-                if flash:
-                    brightness_array[center -1] = abs(math.sin(t2 * math.pi))
-                    brightness_array[center]=brightness_array[center -1]
-                #led center
-                colors[center].red=int(colors[center].red*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].red*brightness_array[center])
-                colors[center].green=int(colors[center].green*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].green*brightness_array[center])
-                colors[center].blue=int(colors[center].blue*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].blue*brightness_array[center])
-                #led center -1
-                colors[center-1].red=int(colors[center-1].red*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].red*brightness_array[center-1])
-                colors[center-1].green=int(colors[center-1].green*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].green*brightness_array[center -1])
-                colors[center-1].blue=int(colors[center-1].blue*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].blue*brightness_array[center-1])
+                    colors.append(color)
+                    index+=1
+                if(led_strip):
+                    for i in range(59,center, -1):
+                        brightness_array[i]=brightness_array[i-1]
+                        colors[i].red=int(colors[i].red*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].red*brightness_array[i])
+                        colors[i].green=int(colors[i].green*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].green*brightness_array[i])
+                        colors[i].blue=int(colors[i].blue*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].blue*brightness_array[i])
+                    for i in range(0,center-1):
+                        brightness_array[i]=brightness_array[i+1]
+                        colors[i].red=int(colors[i].red*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].red*brightness_array[i])
+                        colors[i].green=int(colors[i].green*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].green*brightness_array[i])
+                        colors[i].blue=int(colors[i].blue*(luminosita*(1-brightness_array[i])))+int(not_palettes[not_index].blue*brightness_array[i])
+                    if flash:
+                        brightness_array[center -1] = abs(math.sin(t2 * math.pi))
+                        brightness_array[center]=brightness_array[center -1]
+                    #led center
+                    colors[center].red=int(colors[center].red*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].red*brightness_array[center])
+                    colors[center].green=int(colors[center].green*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].green*brightness_array[center])
+                    colors[center].blue=int(colors[center].blue*(luminosita*(1-brightness_array[center])))+int(not_palettes[not_index].blue*brightness_array[center])
+                    #led center -1
+                    colors[center-1].red=int(colors[center-1].red*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].red*brightness_array[center-1])
+                    colors[center-1].green=int(colors[center-1].green*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].green*brightness_array[center -1])
+                    colors[center-1].blue=int(colors[center-1].blue*(luminosita*(1-brightness_array[center-1])))+int(not_palettes[not_index].blue*brightness_array[center-1])
 
-            #print(brightness_array)
+                #print(brightness_array)
 
-            if led_strip and flash:
-                if ringing==False and t2>=2.0:
-                    flash=False
-                    brightness_array[center -1]=0
-                    brightness_array[center]=0
-                    t2=0.0
-                else: 
-                    t2=t2%2.0
-                    t2+=0.05
-            dev.set_colors(colors)
-        t += 0.05
-        t = t % 1000.0  # 1000 di solito basta
+                if led_strip and flash:
+                    if ringing==False and t2>=2.0:
+                        flash=False
+                        brightness_array[center -1]=0
+                        brightness_array[center]=0
+                        t2=0.0
+                    else: 
+                        t2=t2%2.0
+                        t2+=0.05
+                dev.set_colors(colors)
+            t += 0.05
+            t = t % 1000.0  # 1000 di solito basta
+            led_prec_state=True
+        elif led_prec_state==True:
+            for dev in devices:
+                colors=[]
+                for i, _ in enumerate(dev.leds):
+                    colors.append(RGBColor(0,0,0))
+                dev.set_colors(colors)
+            led_prec_state=False
         time.sleep(step)
+
+
 
 thread = threading.Thread(target=noise_effect)
 thread.start()
 mqtt_client.loop_start()
+keyboard.add_hotkey("ctrl+alt+l", toggle_led)
 try:
     while True:
         usr_input= input()
